@@ -1,6 +1,7 @@
 import java.io.PrintWriter
 import java.util.Date
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
@@ -10,6 +11,12 @@ capital
 
 def fact(x:BigInt): BigInt = if (x==0) 1 else x*fact(x-1)
 //fact(30)
+
+def fib(n: Int): Int = n match {
+  case 0 | 1 => n
+  case _ => fib(n-1) + fib(n-2)
+}
+fib(30)
 
 (1 to 3).foreach(println)
 for (i <- 1 to 3) println(i)
@@ -21,7 +28,7 @@ gs
 
 val nn2 = Array.apply("zero", "one")
 
-val xs = List(3,2) ::: 1 :: Nil
+val xs: Seq[Int] = List(3,2) ::: 1 :: Nil
 
 xs.init
 xs.last
@@ -74,15 +81,29 @@ Symbol("aSymbol")
 -1 >> 31
 -1 >>> 31
 ("he"+"llo") == "hello"
+("he"+"llo") eq "hello"
+("he"+"llo") equals "hello"
 0 max 5
 -2.abs
 
 class Rational(n: Int, d: Int) {
   require(d != 0)
   def this(n: Int) = this(n, 1)
-  def + (that: Rational) = ???
-  def + (i: Int) = ???
+  final def + (that: Rational) = ???
+  final def + (i: Int) = ???
 }
+
+val rational = new Rational(1,1)
+val clazz = rational.getClass
+classOf[Rational]
+clazz.getMethods
+clazz.getConstructors
+clazz.getFields
+clazz.getAnnotations
+clazz.getName
+clazz.getInterfaces
+clazz.getSuperclass
+clazz.getTypeParameters
 
 var i = 0
 do { i += 1 } while (i < 10)
@@ -148,6 +169,7 @@ isEqual(421,421)
 def error(m:String): Nothing = throw new RuntimeException(m)
 
 trait Philosophical {
+  self: Animal with HasLegs =>
   def philosophize = ???
 }
 
@@ -197,6 +219,12 @@ Number(1) match {
   case _ => 0
 }
 
+List(1) match {
+  case List(_) => println("one element")
+  case head :: tail => println("one or more elements")
+  case List(_*) => println("0 or more elements")
+}
+
 val withDefault: Option[Int] => Int = {
   case Some(x) => x
   case None => 0
@@ -212,6 +240,14 @@ val pf = new PartialFunction[List[Int], Int] {
     case _ => false
   }
 }
+
+val truthier: PartialFunction[Boolean, String] =
+  { case true => "truthful" }
+val fallback: PartialFunction[Boolean, String] =
+  { case x => "sketchy" }
+val tester = truthier orElse fallback
+tester(1 == 1)
+tester(2 + 2 == 5)
 
 Nil.isEmpty
 
@@ -245,10 +281,13 @@ ab.trimStart(1)
 Set.empty[String] ++ List(1)
 
 val m = Map("i" -> 1)
+m.foreach { kv => println(kv._1 + ": " + kv._2) }
 m + ("ii" -> 2)
 m ++ List("iii" -> 3, "v" -> 5)
 m - "ii"
 m -- List("i", "ii")
+m.get("i")
+m.getOrElse("i", 0)
 m.size
 m.contains("i")
 //m("ii")
@@ -300,6 +339,33 @@ class Concrete extends Abstact {
   type T = String
 }
 
+abstract class SubjectObserver {
+  type S <: Subject
+  type O <: Observer
+
+  trait Subject {
+    self: S =>
+    private var observers = List[O]()
+    def addObserver(observer: O) = {
+      observers ::= observer
+    def notifyObservers =
+      observers foreach (_.receiveUpdate(self))
+    }
+  }
+
+  trait Observer {
+    def receiveUpdate(subject: S)
+  }
+}
+
+def flatten(list: List[_]): List[_] = list flatMap {
+  case head :: tail => head :: flatten(tail)
+  case Nil => Nil
+  case x => List(x)
+}
+
+flatten(List("a", List("b1", "b2")))
+
 trait RationalTrait {
   val numerArg: Int
   val denomArg: Int
@@ -321,6 +387,11 @@ def using[T <: { def close(): Unit }, S](obj: T)(op: T => S) = {
   val result = op(obj)
   obj.close()
   result
+}
+
+object OptionalUserProfileInfo {
+  val UnknownLocation = ""
+  val UnknownAge = -1
 }
 
 object Color extends Enumeration {
@@ -350,6 +421,7 @@ for {
 List(1,2).collect {
   case i: Int if i > 1 => i
 }
+Nil.size
 Nil.nonEmpty
 Nil.headOption
 
@@ -358,8 +430,13 @@ List(1,2,3) sliding 2
 
 List(1,2,3) zipAll (List(1,2), 0, 0)
 List(1,2,3) sameElements List(1,2,3)
+List(1,2,3) reduceLeft { _ * _ }
+List(1,2,3).foldLeft(10)(_ * _)
 
 1 +: List(2)
+var l2 = List(2)
+l2 ::= 1
+l2
 List(1) :+ 2
 List(1) padTo (3, 0)
 List(1,2,3) patch (1, List(10,11), 1)
@@ -394,11 +471,21 @@ s +=  'a'
 val hm = mutable.HashMap.empty[Int,String]
 hm += (1 -> "Foo")
 
-object Email {
-  def apply() = ???
-  def unapply(s: String): Option[(String,String)] = None
+val hm2: mutable.Map[Int, String] = new mutable.HashMap()
+
+class Person(val name: String, val age: Int) {
+  override def toString: String = s"name: $name, age: $age"
 }
 
-"""(-)?""".r
+object Person {
+  def apply(name: String, age: Int) = new Person(name, age)
+  def unapply(person: Person) = Some((person.name, person.age))
+}
+
+val BookRE = """([^,]+),(.+)""".r
+"Scala,Dean Wampler" match {
+  case BookRE(title, author) => (title, author)
+  case entry => println("Unrecognized entry: " + entry)
+}
 
 //<a>This is some {"XML"}</a>
